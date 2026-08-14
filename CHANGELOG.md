@@ -10,6 +10,16 @@ Breaking changes within the 0.x line are called out explicitly.
 
 ### Added
 
+- **Interactive Blocker — deterministic execution guardrail (`tradingagents/execution/`).**
+  The fast-path gate for the intraday two-speed design: a pure-Python, no-LLM,
+  sub-millisecond `InteractiveBlocker` with a pre-trade `check_order` (caps or
+  denies: market-quality guards, gross/net/concentration/vol-target/fractional-
+  Kelly caps, rate limit, watchlist) and a continuous `monitor` (max-daily-loss
+  flatten+halt latch, per-position stop backstop, kill switch). Risk-*reducing*
+  orders bypass the caps and the halt so de-risking is never blocked. Typed
+  dataclass inputs/decisions (not Pydantic — this is the hot path); 29 unit
+  tests. Import-isolated, so classic behaviour is untouched. See
+  `docs/intraday_architecture.md` §4.
 - **Intraday deployment socle (`deploy/`).** A headless Docker Compose stack
   (IB Gateway + a scaffold runner), a SOPS-encrypted secrets flow decrypted to a
   tmpfs at runtime, a systemd unit, Terraform + cloud-init for an Oracle Cloud

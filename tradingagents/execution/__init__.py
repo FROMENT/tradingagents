@@ -17,9 +17,13 @@ from .schemas import (
     RiskBudget,
     Side,
 )
+from .sizer import Signal, SizerConfig, VolTargetSizer
 
 __all__ = [
     "InteractiveBlocker",
+    "VolTargetSizer",
+    "Signal",
+    "SizerConfig",
     "AccountState",
     "BlockerConfig",
     "BlockReason",

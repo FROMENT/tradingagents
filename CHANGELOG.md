@@ -10,6 +10,14 @@ Breaking changes within the 0.x line are called out explicitly.
 
 ### Added
 
+- **Vol-target sizer (`tradingagents/execution/sizer.py`).** Turns a directional
+  signal into a concrete `ProposedOrder` for the blocker to gate: target weight
+  is `(vol_target / max(σ, floor)) · strength`, with an optional fractional-Kelly
+  magnitude cap (when the signal carries edge/variance), a static safety cap, and
+  a rebalance dead-band to avoid churn. Sizes the delta from the current position
+  and flattens on zero strength. Pure-Python, deterministic; 18 unit tests
+  (including one that shows a proposal being capped by the blocker). See
+  `docs/intraday_architecture.md` §4.
 - **Interactive Blocker — deterministic execution guardrail (`tradingagents/execution/`).**
   The fast-path gate for the intraday two-speed design: a pure-Python, no-LLM,
   sub-millisecond `InteractiveBlocker` with a pre-trade `check_order` (caps or

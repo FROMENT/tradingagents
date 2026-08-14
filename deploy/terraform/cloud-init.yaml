@@ -1,0 +1,40 @@
+#cloud-config
+# Provisions the OCI Ampere host for the intraday stack: Docker, the OCI iptables
+# fix, SOPS/age, and the directory layout. It deliberately does NOT clone the
+# repo or fetch secrets — code delivery is the self-hosted CI runner (or a manual
+# clone into /opt/tradingagents), and the age key is placed out of band.
+package_update: true
+package_upgrade: false
+
+write_files:
+  - path: /etc/tradingagents/README
+    permissions: "0644"
+    content: |
+      TradingAgents intraday host (P3 scaffold). Next steps:
+        1. Place the repo at /opt/tradingagents (self-hosted CI runner or git clone).
+        2. Put your age private key at /etc/tradingagents/age.key (chmod 0600).
+        3. Ensure deploy/secrets/secrets.enc.env is committed (SOPS-encrypted).
+        4. sudo cp /opt/tradingagents/deploy/systemd/tradingagents-intraday.service /etc/systemd/system/
+           sudo systemctl daemon-reload && sudo systemctl enable --now tradingagents-intraday
+      A self-hosted GitHub runner may ONLY be attached to a PRIVATE repo.
+
+runcmd:
+  # --- Docker Engine + compose plugin ---
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  # --- OCI iptables fix: the stock Ubuntu image ships INPUT/FORWARD REJECT rules
+  #     that break the Docker bridge. Allow the bridge, then persist. (On an
+  #     Oracle Linux image the firewall is firewalld instead — adjust there.)
+  - iptables -I INPUT 1 -i docker0 -j ACCEPT
+  - iptables -I FORWARD 1 -i docker0 -j ACCEPT
+  - iptables -I FORWARD 1 -o docker0 -j ACCEPT
+  - DEBIAN_FRONTEND=noninteractive apt-get update
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netcat-openbsd age
+  - netfilter-persistent save || true
+  # --- SOPS (age backend), ARM64 static binary ---
+  - curl -fsSL -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
+  - chmod +x /usr/local/bin/sops
+  # --- Layout ---
+  - install -d -m 0755 /opt/tradingagents
+  - install -d -m 0700 /etc/tradingagents
+  - usermod -aG docker ubuntu || true

@@ -1,0 +1,42 @@
+# Headless image for the intraday deployment (P3 scaffold).
+#
+# Build context is the REPOSITORY ROOT (so the package installs). Build it
+# NATIVELY on ARM64 (the OCI Ampere host or an `ubuntu-24.04-arm` runner) — do
+# not cross-build under QEMU. python:3.12-slim is multi-arch, and every runtime
+# dep (pandas, ib_async, langchain, ...) publishes aarch64 wheels, so there is
+# no compiler in the final image and none is needed.
+#
+#   docker build -f deploy/Dockerfile.headless -t tradingagents-intraday:local .
+
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /build
+COPY . .
+# Install the package plus the optional intraday extra (ib_async).
+RUN pip install --no-cache-dir ".[intraday]"
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN useradd --create-home appuser \
+ && install -d -m 0755 -o appuser -g appuser /home/appuser/.tradingagents
+USER appuser
+WORKDIR /home/appuser/app
+
+# Only the runner package is needed at runtime; the library is already installed
+# into the venv above.
+COPY --from=builder --chown=appuser:appuser /build/deploy/runner ./runner
+
+# SCAFFOLD entrypoint — connects, reconciles, heartbeats. Places no orders.
+ENTRYPOINT ["python", "-m", "runner.heartbeat"]

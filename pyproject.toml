@@ -44,6 +44,12 @@ dev = [
 bedrock = [
     "langchain-aws>=1.5.0",
 ]
+# Intraday execution deployment (IBKR via ib_async). Optional so the core
+# install stays lean: pip install "tradingagents[intraday]". Pure-Python, so it
+# builds on ARM64 (OCI Ampere) with no compiler. See docs/intraday_architecture.md.
+intraday = [
+    "ib_async>=1.0.0",
+]
 
 [project.scripts]
 tradingagents = "cli.main:app"

@@ -157,6 +157,19 @@ ENV/
 env.bak/
 venv.bak/
 
+# --- Intraday deployment (deploy/) ---
+# Decrypted/plaintext secrets must NEVER be committed. Only the SOPS-encrypted
+# *.enc.env and the *.example template belong in git.
+deploy/secrets/secrets.env
+deploy/secrets/*.plain.env
+deploy/secrets/age.key
+# Terraform local state and real variable files (state can contain secrets).
+deploy/terraform/.terraform/
+deploy/terraform/*.tfstate
+deploy/terraform/*.tfstate.*
+deploy/terraform/*.tfvars
+!deploy/terraform/*.tfvars.example
+
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes within the 0.x line are called out explicitly.
 
+## [Unreleased]
+
+### Added
+
+- **Intraday deployment socle (`deploy/`).** A headless Docker Compose stack
+  (IB Gateway + a scaffold runner), a SOPS-encrypted secrets flow decrypted to a
+  tmpfs at runtime, a systemd unit, Terraform + cloud-init for an Oracle Cloud
+  Ampere A1 (ARM64) host, and a self-hosted-runner deploy workflow. The runner
+  connects to IBKR paper, reconciles positions and open orders against the
+  broker, and logs a heartbeat — it places no orders. An optional `intraday`
+  extra pulls `ib_async` (`pip install "tradingagents[intraday]"`). Classic
+  behaviour is untouched. See `docs/intraday_architecture.md`.
+
 ## [0.3.1] — 2026-07-05
 
 Correctness and stability patch: data look-ahead, graph-router crash-safety,

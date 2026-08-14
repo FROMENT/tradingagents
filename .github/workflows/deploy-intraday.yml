@@ -1,0 +1,48 @@
+name: deploy-intraday
+
+# Builds the ARM64 image natively and restarts the stack on the OCI host.
+#
+# SECURITY: this runs on a SELF-HOSTED runner living on the trading host. A
+# self-hosted runner must ONLY be attached to a PRIVATE repository — on a public
+# repo anyone could run code on the machine that holds your broker credentials.
+# The job is a no-op until such a runner (labels: self-hosted, ARM64) is
+# registered, so it is safe to have present on the branch.
+
+on:
+  push:
+    branches:
+      - main
+      - claude/tradingagents-rmats-integration-3gy33b
+    paths:
+      - "deploy/**"
+      - "tradingagents/**"
+      - "cli/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-intraday
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, ARM64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image (native ARM64)
+        run: docker build -f deploy/Dockerfile.headless -t tradingagents-intraday:local .
+
+      - name: Sync repo to /opt/tradingagents
+        # Keeps the compose file, runner and scripts the systemd unit expects in
+        # sync. Requires the runner user to have passwordless sudo for rsync +
+        # systemctl (configure in /etc/sudoers.d/). Secrets are never touched
+        # here — they live only in the SOPS-encrypted file and the tmpfs decrypt.
+        run: sudo rsync -a --delete --exclude '.git' ./ /opt/tradingagents/
+
+      - name: Restart stack
+        run: sudo systemctl restart tradingagents-intraday.service
+
+      - name: Show status
+        run: sudo systemctl --no-pager --full status tradingagents-intraday.service || true

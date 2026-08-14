@@ -1,0 +1,62 @@
+# Production (headless) stack for the intraday deployment — P3 scaffold.
+#
+# Two services on a private Docker network:
+#   ib-gateway : IBKR IB Gateway + IBC auto-login (the only component that talks
+#                to IBKR). No API port is published to the host.
+#   app        : the heartbeat runner (SCAFFOLD, no orders) — reaches the gateway
+#                over the internal network only.
+#
+# Secrets are injected from a tmpfs file that systemd decrypts with SOPS at
+# start (deploy/scripts/decrypt-secrets.sh). Nothing here reads a plaintext
+# .env from disk. There is deliberately no `tty:`/`stdin_open:` — this runs
+# unattended.
+#
+# Bring up via systemd (deploy/systemd/tradingagents-intraday.service), not by
+# hand, so the decrypt/shred lifecycle is honoured.
+
+services:
+  ib-gateway:
+    # Pin a specific multi-arch (arm64) tag in production. gnzsnz publishes arm64
+    # builds; cslev/ibkr-docker is an explicit multi-arch alternative. Confirm the
+    # internal API ports (4003 live / 4004 paper) for the tag you pin.
+    image: ${IB_GATEWAY_IMAGE:-ghcr.io/gnzsnz/ib-gateway:stable}
+    restart: unless-stopped
+    env_file:
+      - /run/tradingagents/secrets.env   # provides TWS_USERID / TWS_PASSWORD / TRADING_MODE
+    environment:
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      READ_ONLY_API: ${READ_ONLY_API:-yes} # scaffold: block order submission at the gateway too
+      TWOFA_TIMEOUT_ACTION: exit           # don't hang forever on a missed 2FA prompt
+    mem_limit: 2g
+    stop_grace_period: 30s
+    healthcheck:
+      # The API port is open once the gateway is logged in and ready.
+      test: ["CMD-SHELL", "nc -z localhost 4004 || nc -z localhost 4003 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.headless
+    image: tradingagents-intraday:local
+    restart: unless-stopped
+    depends_on:
+      ib-gateway:
+        condition: service_healthy
+    env_file:
+      - /run/tradingagents/secrets.env   # provides OPENROUTER_API_KEY etc. (slow path)
+    environment:
+      IB_GATEWAY_HOST: ib-gateway
+      IB_GATEWAY_PORT: ${IB_GATEWAY_PORT:-4004}  # paper; 4003 for live
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-60}
+    volumes:
+      - tradingagents_data:/home/appuser/.tradingagents
+    mem_limit: 1g
+    stop_grace_period: 30s
+
+volumes:
+  tradingagents_data:

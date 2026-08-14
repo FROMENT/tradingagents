@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (gitignored) and fill in. Get the OCIDs/fingerprint
+# from `oci setup config` or the OCI Console (Identity > Users > API Keys).
+
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaa..."
+user_ocid        = "ocid1.user.oc1..aaaa..."
+fingerprint      = "aa:bb:cc:dd:..."
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "eu-frankfurt-1" # your Always Free HOME region (immutable)
+compartment_ocid = "ocid1.compartment.oc1..aaaa..." # or the tenancy OCID for the root compartment
+
+ssh_public_key   = "ssh-ed25519 AAAA... you@host"
+ssh_allowed_cidr = "203.0.113.7/32" # your admin IP only
+
+# Modest on purpose (stays out of OCI's idle-reclamation profile):
+ocpus         = 1
+memory_in_gbs = 6

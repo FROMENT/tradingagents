@@ -1,0 +1,33 @@
+# systemd unit for the intraday stack (P3 scaffold).
+#
+# Install on the OCI host:
+#   sudo cp /opt/tradingagents/deploy/systemd/tradingagents-intraday.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tradingagents-intraday
+#
+# Lifecycle: decrypt secrets into tmpfs -> compose up -> (on stop) compose down
+# and shred the decrypted secrets.
+[Unit]
+Description=TradingAgents intraday stack (IB Gateway + heartbeat runner)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/tradingagents
+Environment=SOPS_AGE_KEY_FILE=/etc/tradingagents/age.key
+Environment=COMPOSE=deploy/docker-compose.prod.yml
+
+ExecStartPre=/opt/tradingagents/deploy/scripts/decrypt-secrets.sh
+ExecStart=/usr/bin/docker compose -f ${COMPOSE} up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f ${COMPOSE} down
+# Remove the decrypted secrets from tmpfs when the stack stops.
+ExecStopPost=/bin/sh -c 'shred -u /run/tradingagents/secrets.env 2>/dev/null || true'
+
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

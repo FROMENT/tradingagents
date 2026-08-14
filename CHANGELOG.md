@@ -10,6 +10,16 @@ Breaking changes within the 0.x line are called out explicitly.
 
 ### Added
 
+- **Cost-inclusive intraday backtester — the P2 gate (`tradingagents/execution/backtest.py`).**
+  Event-driven replay of the real fast path (sizer proposes, blocker gates) over
+  historical bars, filling every order as a taker against a realistic cost model
+  (bid/ask spread + slippage + commission). Reports net vs gross with a cost
+  breakdown, annualized Sharpe, max drawdown, turnover, and halt count; models
+  intraday flat-by-close and fires the blocker's halt/flatten in the sim. Pure-
+  Python, deterministic, no pandas; 12 unit tests. Data loading is intentionally
+  out of scope so the gate stays dependency-light. See
+  `docs/intraday_architecture.md` §7 — if net edge does not clear costs here, the
+  effort stops before a broker adapter is written.
 - **Vol-target sizer (`tradingagents/execution/sizer.py`).** Turns a directional
   signal into a concrete `ProposedOrder` for the blocker to gate: target weight
   is `(vol_target / max(σ, floor)) · strength`, with an optional fractional-Kelly

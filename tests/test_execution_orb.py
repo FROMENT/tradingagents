@@ -100,6 +100,24 @@ class TestCsvLoader:
         assert bars[0].spread_bps == 5.0
         assert bars[1].spread_bps is None
 
+    def test_malformed_number_raises_clear_error(self, tmp_path):
+        p = tmp_path / "bars.csv"
+        p.write_text(CSV.replace("102,100,101.5", "102,oops,101.5"))
+        with pytest.raises(ValueError, match="line 3"):
+            load_bars_csv(p)
+
+    def test_missing_column_raises_clear_error(self, tmp_path):
+        p = tmp_path / "bars.csv"
+        p.write_text(CSV.replace(",prev_close", ""))  # drop a required column
+        with pytest.raises(ValueError, match="malformed bar CSV"):
+            load_bars_csv(p)
+
+    def test_empty_csv_raises(self, tmp_path):
+        p = tmp_path / "bars.csv"
+        p.write_text("ts,session,symbol,high,low,close,prev_close,vol,is_close\n")
+        with pytest.raises(ValueError, match="no data rows"):
+            load_bars_csv(p)
+
 
 @pytest.mark.unit
 class TestBuildFrames:

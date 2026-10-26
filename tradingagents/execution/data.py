@@ -57,25 +57,34 @@ class BacktestBar:
 
 
 def load_bars_csv(path: str | Path) -> list[BacktestBar]:
-    """Load intraday bars from a CSV (stdlib only). Rows must be time-sorted."""
+    """Load intraday bars from a CSV (stdlib only). Rows must be time-sorted.
+
+    Raises ``ValueError`` with the offending row number on a missing column or
+    an unparseable number, rather than leaking a raw ``KeyError``/``ValueError``.
+    """
     bars: list[BacktestBar] = []
     with Path(path).open(newline="") as fh:
-        for row in csv.DictReader(fh):
-            spread = row.get("spread_bps")
-            bars.append(
-                BacktestBar(
-                    ts=float(row["ts"]),
-                    session=int(row["session"]),
-                    symbol=row["symbol"].strip(),
-                    high=float(row["high"]),
-                    low=float(row["low"]),
-                    close=float(row["close"]),
-                    prev_close=float(row["prev_close"]),
-                    vol=float(row["vol"]),
-                    is_close=str(row.get("is_close", "")).strip().lower() in _TRUE,
-                    spread_bps=float(spread) if spread not in (None, "") else None,
+        for lineno, row in enumerate(csv.DictReader(fh), start=2):  # row 1 is the header
+            try:
+                spread = row.get("spread_bps")
+                bars.append(
+                    BacktestBar(
+                        ts=float(row["ts"]),
+                        session=int(row["session"]),
+                        symbol=row["symbol"].strip(),
+                        high=float(row["high"]),
+                        low=float(row["low"]),
+                        close=float(row["close"]),
+                        prev_close=float(row["prev_close"]),
+                        vol=float(row["vol"]),
+                        is_close=str(row.get("is_close", "")).strip().lower() in _TRUE,
+                        spread_bps=float(spread) if spread not in (None, "") else None,
+                    )
                 )
-            )
+            except (KeyError, ValueError, TypeError) as exc:
+                raise ValueError(f"malformed bar CSV at line {lineno}: {exc}") from exc
+    if not bars:
+        raise ValueError("bar CSV contains no data rows")
     return bars
 
 

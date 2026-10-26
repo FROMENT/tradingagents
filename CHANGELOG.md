@@ -10,6 +10,16 @@ Breaking changes within the 0.x line are called out explicitly.
 
 ### Added
 
+- **Opening Range Breakout signal + CSV data loader + runner
+  (`tradingagents/execution/orb.py`, `data.py`, `scripts/backtest_orb.py`).**
+  Wires the reference intraday signal (Zarattini et al.) to the P2 gate: the ORB
+  emits a per-bar strength in {-1, 0, +1} (first-breakout-of-the-opening-range,
+  one entry/session, opposite-bound stop), a stdlib-`csv` loader turns a bars CSV
+  into backtester frames, and `scripts/backtest_orb.py` runs loader → ORB →
+  sizer → blocker → cost-inclusive backtest and prints a net-of-cost verdict.
+  Pure-Python, no vendor SDK — runnable on a real exported CSV; 12 unit tests
+  (ORB logic, CSV round-trip, frame building, synthetic end-to-end). See
+  `docs/intraday_architecture.md` §7.
 - **Cost-inclusive intraday backtester — the P2 gate (`tradingagents/execution/backtest.py`).**
   Event-driven replay of the real fast path (sizer proposes, blocker gates) over
   historical bars, filling every order as a taker against a realistic cost model

@@ -160,10 +160,6 @@ class ProposedOrder:
     snapshot: MarketSnapshot
 
     @property
-    def signed_quantity(self) -> float:
-        return self.quantity if self.side is Side.BUY else -self.quantity
-
-    @property
     def notional(self) -> float:
         return self.quantity * self.snapshot.price
 

@@ -12,7 +12,6 @@ on:
   push:
     branches:
       - main
-      - claude/tradingagents-rmats-integration-3gy33b
     paths:
       - "deploy/**"
       - "tradingagents/**"

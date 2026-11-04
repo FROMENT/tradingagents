@@ -7,6 +7,26 @@ package_update: true
 package_upgrade: false
 
 write_files:
+  - path: /opt/install-sops.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # Install a pinned SOPS release and verify it against the release's own
+      # published checksums before putting it on PATH — guards against a
+      # corrupted/tampered download. For a stronger supply-chain guarantee,
+      # pin the expected hash in this file instead of fetching the checksums.
+      set -euo pipefail
+      V=v3.9.4
+      base="https://github.com/getsops/sops/releases/download/$V"
+      asset="sops-$V.linux.arm64"
+      tmp="$(mktemp -d)"
+      curl -fsSL -o "$tmp/sops" "$base/$asset"
+      curl -fsSL -o "$tmp/sums" "$base/sops-$V.checksums.txt"
+      expected="$(grep " $asset\$" "$tmp/sums" | awk '{print $1}')"
+      [ -n "$expected" ] || { echo "no checksum for $asset" >&2; exit 1; }
+      echo "$expected  $tmp/sops" | sha256sum -c -
+      install -m 0755 "$tmp/sops" /usr/local/bin/sops
+      rm -rf "$tmp"
   - path: /etc/tradingagents/README
     permissions: "0644"
     content: |
@@ -31,9 +51,8 @@ runcmd:
   - DEBIAN_FRONTEND=noninteractive apt-get update
   - DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netcat-openbsd age
   - netfilter-persistent save || true
-  # --- SOPS (age backend), ARM64 static binary ---
-  - curl -fsSL -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.arm64
-  - chmod +x /usr/local/bin/sops
+  # --- SOPS (age backend), ARM64 — downloaded AND checksum-verified ---
+  - /opt/install-sops.sh
   # --- Layout ---
   - install -d -m 0755 /opt/tradingagents
   - install -d -m 0700 /etc/tradingagents

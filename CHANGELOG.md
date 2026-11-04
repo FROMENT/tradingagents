@@ -6,10 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Breaking changes within the 0.x line are called out explicitly.
 
-## [Unreleased]
+## [0.4.0] — 2026-10-26
+
+Intraday execution layer (research scaffold): a deterministic fast-path
+(blocker + sizer), a cost-inclusive backtest gate with the ORB reference signal,
+a headless deployment socle, and a security-hardening pass. All of it is
+import-isolated from the classic flow, which is unchanged.
 
 ### Added
 
+- **Opening Range Breakout signal + CSV data loader + runner
+  (`tradingagents/execution/orb.py`, `data.py`, `scripts/backtest_orb.py`).**
+  Wires the reference intraday signal (Zarattini et al.) to the P2 gate: the ORB
+  emits a per-bar strength in {-1, 0, +1} (first-breakout-of-the-opening-range,
+  one entry/session, opposite-bound stop), a stdlib-`csv` loader turns a bars CSV
+  into backtester frames, and `scripts/backtest_orb.py` runs loader → ORB →
+  sizer → blocker → cost-inclusive backtest and prints a net-of-cost verdict.
+  Pure-Python, no vendor SDK — runnable on a real exported CSV; 12 unit tests
+  (ORB logic, CSV round-trip, frame building, synthetic end-to-end). See
+  `docs/intraday_architecture.md` §7.
 - **Cost-inclusive intraday backtester — the P2 gate (`tradingagents/execution/backtest.py`).**
   Event-driven replay of the real fast path (sizer proposes, blocker gates) over
   historical bars, filling every order as a taker against a realistic cost model
@@ -46,6 +61,26 @@ Breaking changes within the 0.x line are called out explicitly.
   broker, and logs a heartbeat — it places no orders. An optional `intraday`
   extra pulls `ib_async` (`pip install "tradingagents[intraday]"`). Classic
   behaviour is untouched. See `docs/intraday_architecture.md`.
+
+### Security
+
+- **Minimized the headless image's attack surface.** `deploy/Dockerfile.headless`
+  now installs only `ib_async` plus the stdlib `tradingagents.execution` package,
+  not the full LLM/data framework (langchain, langgraph, pandas, yfinance,
+  backtrader, redis) — the container holding the broker credentials carries the
+  minimum code.
+- **SOPS install is checksum-verified.** The OCI cloud-init now downloads the
+  pinned SOPS release and verifies it against the release's published checksums
+  before putting it on PATH (was an unverified binary download).
+- **Hardened the bars CSV loader.** `load_bars_csv` raises a clear `ValueError`
+  with the offending line on a malformed/missing field instead of leaking a raw
+  `KeyError`, and rejects an empty file.
+- **Tightened the deploy workflow trigger** to `main` + manual dispatch only
+  (no auto-deploy from feature branches to the trading host).
+- Removed dead code (`ProposedOrder.signed_quantity`) from the execution layer.
+- Added non-regression guards: `tests/test_execution_isolation.py` fails if the
+  execution layer ever imports the classic flow (`agents`/`dataflows`) or the
+  heavy data/LLM stack, or introduces `eval`/`exec`/`subprocess`/`pickle`.
 
 ## [0.3.1] — 2026-07-05
 
